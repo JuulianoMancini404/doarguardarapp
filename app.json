@@ -9,9 +9,16 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Permissão para usar a câmera e escanear códigos de barras de produtos.",
+        "NSPhotoLibraryUsageDescription": "Permissão para acessar suas fotos."
+      }
     },
     "android": {
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
