@@ -1,4 +1,4 @@
-import { Camera } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -15,6 +15,14 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { lookupProductByBarcode, PantryProduct, saveProduct } from '@/lib/products';
+
+const CATEGORY_OPTIONS = [
+  'Alimentícios',
+  'Alimentos Geladeira',
+  'Higiene Pessoal',
+  'Limpeza',
+  'Outros',
+];
 
 const EMPTY_PRODUCT: PantryProduct = {
   barcode: '',
@@ -36,24 +44,14 @@ export default function NewProductScreen() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [scanMode, setScanMode] = useState<'barcode' | 'batch'>('barcode');
   const [scanMessage, setScanMessage] = useState('Aguardando leitura do código de barras...');
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [, requestPermission] = useCameraPermissions();
 
   useEffect(() => {
-    if (!scannerOpen) {
-      return;
-    }
-
-    if (Platform.OS === 'web') {
-      setHasPermission(false);
-      return;
-    }
-
-    (async () => {
-      setHasPermission(null);
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, [scannerOpen]);
+    // Efeito vazio - permissões são solicitadas no openScanner
+  }, []);
 
   const handleLookupBarcode = async () => {
     if (!product.barcode.trim()) {
@@ -123,30 +121,62 @@ export default function NewProductScreen() {
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
     setScanned(true);
-    setProduct((current) => ({ ...current, barcode: data }));
-    setScanMessage(`Código lido: ${data}`);
+    const fieldName = scanMode === 'barcode' ? 'barcode' : 'batchNumber';
+    setProduct((current) => ({ ...current, [fieldName]: data }));
+    setScanMessage(`${scanMode === 'barcode' ? 'Código lido' : 'Lote lido'}: ${data}`);
 
-    const remoteProduct = await lookupProductByBarcode(data);
-    if (remoteProduct) {
-      setProduct((current) => ({ ...current, ...remoteProduct }));
-      Alert.alert('Sucesso', 'Produto encontrado e preenchido automaticamente.');
+    if (scanMode === 'barcode') {
+      const remoteProduct = await lookupProductByBarcode(data);
+      if (remoteProduct) {
+        setProduct((current) => ({ ...current, ...remoteProduct }));
+        Alert.alert('Sucesso', 'Produto encontrado e preenchido automaticamente.');
+        return;
+      }
+
+      Alert.alert(
+        'Código lido',
+        'Código de barras capturado. Preencha os dados manualmente ou toque em Buscar.',
+      );
       return;
     }
 
-    Alert.alert(
-      'Código lido',
-      'Código de barras capturado. Preencha os dados manualmente ou toque em Buscar.',
-    );
+    Alert.alert('Lote lido', 'Número do lote capturado. Continue o cadastro manualmente.');
   };
 
-  const openScanner = () => {
-    setScannerOpen(true);
-    setScanMessage('Aguardando leitura do código de barras...');
-    setScanned(false);
+  const openScanner = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert('Não suportado', 'O scanner de código de barras não está disponível na web.');
+      return;
+    }
+
+    const permissionResponse = await requestPermission();
+    const granted = permissionResponse?.granted === true;
+    setHasPermission(granted);
+
+    if (granted) {
+      setScannerOpen(true);
+      setScanMessage(
+        scanMode === 'barcode'
+          ? 'Aguardando leitura do código de barras...'
+          : 'Aguardando leitura do número do lote...',
+      );
+      setScanned(false);
+    } else {
+      Alert.alert('Permissão negada', 'Permissão de câmera necessária para escanear códigos de barras.');
+    }
   };
 
   const closeScanner = () => {
     setScannerOpen(false);
+  };
+
+  const resetScanner = () => {
+    setScanned(false);
+    setScanMessage(
+      scanMode === 'barcode'
+        ? 'Aguardando leitura do código de barras...'
+        : 'Aguardando leitura do número do lote...',
+    );
   };
 
   return (
@@ -172,16 +202,45 @@ export default function NewProductScreen() {
             </Pressable>
           </View>
 
+          <View style={styles.scanModeRow}>
+            <Pressable
+              style={[
+                styles.scanModeButton,
+                scanMode === 'barcode' ? styles.scanModeButtonActive : null,
+              ]}
+              onPress={() => setScanMode('barcode')}
+            >
+              <ThemedText
+                style={scanMode === 'barcode' ? styles.scanModeTextActive : styles.scanModeText}
+              >
+                Código de barras
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.scanModeButton,
+                scanMode === 'batch' ? styles.scanModeButtonActive : null,
+              ]}
+              onPress={() => setScanMode('batch')}
+            >
+              <ThemedText
+                style={scanMode === 'batch' ? styles.scanModeTextActive : styles.scanModeText}
+              >
+                Número do lote
+              </ThemedText>
+            </Pressable>
+          </View>
+
           {scannerOpen ? (
             hasPermission === null ? (
               <ThemedText>Solicitando permissão de câmera...</ThemedText>
             ) : hasPermission === false ? (
               <ThemedText>Permissão de câmera negada. Use o campo de código manualmente.</ThemedText>
             ) : (
-              <Camera
+              <CameraView
                 style={styles.scanner}
-                type={CameraType.back}
-                onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+                facing="back"
+                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
               />
             )
           ) : (
@@ -231,13 +290,30 @@ export default function NewProductScreen() {
           onChangeText={(value) => handleFieldChange('brand', value)}
           placeholderTextColor="#888"
         />
-        <TextInput
-          style={styles.input}
-          placeholder="Categoria"
-          value={product.category}
-          onChangeText={(value) => handleFieldChange('category', value)}
-          placeholderTextColor="#888"
-        />
+        <Pressable
+          style={[styles.input, styles.dropdownInput]}
+          onPress={() => setCategoryOpen((current) => !current)}
+        >
+          <ThemedText style={product.category ? styles.categoryText : styles.placeholderText}>
+            {product.category || 'Selecione categoria'}
+          </ThemedText>
+        </Pressable>
+        {categoryOpen ? (
+          <View style={styles.dropdown}>
+            {CATEGORY_OPTIONS.map((option) => (
+              <Pressable
+                key={option}
+                style={styles.dropdownItem}
+                onPress={() => {
+                  handleFieldChange('category', option);
+                  setCategoryOpen(false);
+                }}
+              >
+                <ThemedText style={styles.dropdownItemText}>{option}</ThemedText>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
         <TextInput
           style={styles.input}
           placeholder="Número do lote"
@@ -348,6 +424,31 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
+  scanModeRow: {
+    flexDirection: 'row',
+    padding: 12,
+    gap: 8,
+    backgroundColor: '#111',
+  },
+  scanModeButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#444',
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  scanModeButtonActive: {
+    borderColor: '#0a7ea4',
+    backgroundColor: '#0a7ea4',
+  },
+  scanModeText: {
+    color: '#fff',
+  },
+  scanModeTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
   input: {
     flex: 1,
     borderWidth: 1,
@@ -356,6 +457,31 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 16,
     backgroundColor: '#fff',
+  },
+  dropdownInput: {
+    justifyContent: 'center',
+  },
+  dropdown: {
+    borderWidth: 1,
+    borderColor: '#bbb',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  dropdownItemText: {
+    fontSize: 16,
+  },
+  placeholderText: {
+    color: '#888',
+  },
+  categoryText: {
+    color: '#000',
   },
   lookupButton: {
     backgroundColor: '#0a7ea4',

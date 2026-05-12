@@ -39,13 +39,18 @@ export default function DashboardScreen() {
         key={item.id}
         style={[styles.card, isNearExpiry(item.expiryDate) ? styles.cardWarning : null]}
         onPress={() => router.push({ pathname: `/product/${item.id}` } as any)}>
-        {item.imageUri ? (
-          <Image source={item.imageUri} style={styles.cardImage} />
-        ) : (
-          <View style={styles.cardImagePlaceholder}>
-            <ThemedText type="subtitle">Sem imagem</ThemedText>
+        <View style={styles.imageContainer}>
+          {item.imageUri ? (
+            <Image source={item.imageUri} style={styles.cardImage} />
+          ) : (
+            <View style={styles.cardImagePlaceholder}>
+              <ThemedText type="subtitle">Sem imagem</ThemedText>
+            </View>
+          )}
+          <View style={styles.quantityBadge}>
+            <ThemedText style={styles.quantityText}>{item.quantity}</ThemedText>
           </View>
-        )}
+        </View>
         <View style={styles.cardContent}>
           <ThemedText type="defaultSemiBold" style={styles.cardTitle}>
             {item.name || 'Produto sem nome'}
@@ -68,6 +73,16 @@ export default function DashboardScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <MaterialIcons name="inventory-2" size={32} color="#0a7ea4" />
+            <View style={styles.statContent}>
+              <ThemedText style={styles.statLabel}>Produtos no estoque</ThemedText>
+              <ThemedText style={styles.statValue}>{products.length}</ThemedText>
+            </View>
+          </View>
+        </View>
+
         <View style={styles.sectionHeader}>
           <ThemedText type="subtitle">Vencimento próximo</ThemedText>
         </View>
@@ -142,6 +157,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  imageContainer: {
+    position: 'relative',
+  },
+  quantityBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#0a7ea4',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minWidth: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantityText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
   cardContent: {
     padding: 16,
     gap: 6,
@@ -154,5 +189,31 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: '#555',
+  },
+  statsContainer: {
+    gap: 12,
+  },
+  statCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  statContent: {
+    flex: 1,
+    gap: 4,
+  },
+  statLabel: {
+    color: '#666',
+    fontSize: 14,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#0a7ea4',
   },
 });
