@@ -7,7 +7,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { getAllProducts, isNearExpiry, PantryProduct } from '@/lib/products';
+import { formatDate, getAllProducts, isNearExpiry, PantryProduct } from '@/lib/products';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -30,8 +30,8 @@ export default function DashboardScreen() {
   });
 
   const renderCard = (item: PantryProduct) => {
-    const expiryDate = item.expiryDate || 'Não informada';
-    const days = Math.ceil((new Date(expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    const expiryDate = item.expiryDate ? formatDate(item.expiryDate) : 'Não informada';
+    const days = Math.ceil((new Date(item.expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     const detail = days >= 0 ? `${days} dia(s)` : 'Vencido';
 
     return (

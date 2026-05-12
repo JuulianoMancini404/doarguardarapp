@@ -1,15 +1,15 @@
-import { Camera, CameraType } from 'expo-camera';
+import { Camera } from 'expo-camera';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -26,6 +26,7 @@ const EMPTY_PRODUCT: PantryProduct = {
   notes: '',
   imageUri: '',
   createdAt: new Date().toISOString(),
+  batchNumber: '',
 };
 
 export default function NewProductScreen() {
@@ -82,12 +83,42 @@ export default function NewProductScreen() {
       return;
     }
 
-    await saveProduct(product);
+    // Converter data de dd/mm/yyyy para yyyy-mm-dd
+    const dateParts = product.expiryDate.split('/');
+    if (dateParts.length !== 3) {
+      Alert.alert('Data de validade inválida. Use o formato dd/mm/aaaa.');
+      return;
+    }
+    const [day, month, year] = dateParts;
+    const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+
+    const productToSave = { ...product, expiryDate: isoDate };
+
+    await saveProduct(productToSave);
     router.push('/dashboard');
   };
 
   const handleFieldChange = (field: keyof PantryProduct, value: string) => {
     setProduct((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleExpiryDateChange = (value: string) => {
+    // Remove tudo que não é número
+    const cleaned = value.replace(/\D/g, '');
+    // Limita a 8 dígitos (ddmmyyyy)
+    const limited = cleaned.slice(0, 8);
+    // Aplica máscara dd/mm/yyyy
+    let formatted = limited;
+    if (limited.length >= 2) {
+      formatted = `${limited.slice(0, 2)}/${limited.slice(2)}`;
+    }
+    if (limited.length >= 4) {
+      formatted = `${limited.slice(0, 2)}/${limited.slice(2, 4)}/${limited.slice(4)}`;
+    }
+    if (limited.length >= 6) {
+      formatted = `${limited.slice(0, 2)}/${limited.slice(2, 4)}/${limited.slice(4, 8)}`;
+    }
+    setProduct((current) => ({ ...current, expiryDate: formatted }));
   };
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
@@ -155,7 +186,7 @@ export default function NewProductScreen() {
             )
           ) : (
             <ThemedText style={styles.scanIdleText}>
-              Toque em "Ler código" para abrir a câmera e escanear.
+              Toque em &quot;Ler código&quot; para abrir a câmera e escanear.
             </ThemedText>
           )}
 
@@ -209,10 +240,19 @@ export default function NewProductScreen() {
         />
         <TextInput
           style={styles.input}
-          placeholder="Data de validade (YYYY-MM-DD)"
-          value={product.expiryDate}
-          onChangeText={(value) => handleFieldChange('expiryDate', value)}
+          placeholder="Número do lote"
+          value={product.batchNumber}
+          onChangeText={(value) => handleFieldChange('batchNumber', value)}
           placeholderTextColor="#888"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Data de validade (dd/mm/aaaa)"
+          value={product.expiryDate}
+          onChangeText={(value) => handleExpiryDateChange(value)}
+          placeholderTextColor="#888"
+          keyboardType="number-pad"
+          maxLength={10}
         />
         <TextInput
           style={styles.input}

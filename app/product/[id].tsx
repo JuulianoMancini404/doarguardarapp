@@ -5,7 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, TextInput } from 'react-nativ
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { deleteProduct, getProductById, PantryProduct, saveProduct } from '@/lib/products';
+import { deleteProduct, formatDate, getProductById, PantryProduct, saveProduct } from '@/lib/products';
 
 export default function EditProductScreen() {
   const { id } = useLocalSearchParams();
@@ -31,6 +31,26 @@ export default function EditProductScreen() {
     setProduct((current) => (current ? { ...current, [field]: value } : current));
   };
 
+  const handleExpiryDateChange = (value: string) => {
+    // Remove tudo que não é número
+    const cleaned = value.replace(/\D/g, '');
+    // Limita a 8 dígitos (ddmmyyyy)
+    const limited = cleaned.slice(0, 8);
+    // Aplica máscara dd/mm/yyyy
+    let formatted = limited;
+    if (limited.length >= 2) {
+      formatted = `${limited.slice(0, 2)}/${limited.slice(2)}`;
+    }
+    if (limited.length >= 4) {
+      formatted = `${limited.slice(0, 2)}/${limited.slice(2, 4)}/${limited.slice(4)}`;
+    }
+    if (limited.length >= 6) {
+      formatted = `${limited.slice(0, 2)}/${limited.slice(2, 4)}/${limited.slice(4, 8)}`;
+    }
+    // Atualizar o produto com a data formatada para exibição, mas manter o valor interno como yyyy-mm-dd
+    setProduct((current) => (current ? { ...current, expiryDate: formatted } : current));
+  };
+
   const handleSave = async () => {
     if (!product) {
       return;
@@ -41,7 +61,19 @@ export default function EditProductScreen() {
       return;
     }
 
-    await saveProduct(product);
+    // Converter data de dd/mm/yyyy para yyyy-mm-dd se necessário
+    let expiryDate = product.expiryDate;
+    if (expiryDate.includes('/')) {
+      const dateParts = expiryDate.split('/');
+      if (dateParts.length === 3) {
+        const [day, month, year] = dateParts;
+        expiryDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+    }
+
+    const productToSave = { ...product, expiryDate };
+
+    await saveProduct(productToSave);
     router.push('/dashboard');
   };
 
@@ -120,10 +152,19 @@ export default function EditProductScreen() {
         />
         <TextInput
           style={styles.input}
-          placeholder="Data de validade (YYYY-MM-DD)"
-          value={product.expiryDate}
-          onChangeText={(value) => handleFieldChange('expiryDate', value)}
+          placeholder="Número do lote"
+          value={product.batchNumber}
+          onChangeText={(value) => handleFieldChange('batchNumber', value)}
           placeholderTextColor="#888"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Data de validade (dd/mm/aaaa)"
+          value={product.expiryDate ? formatDate(product.expiryDate) : ''}
+          onChangeText={(value) => handleExpiryDateChange(value)}
+          placeholderTextColor="#888"
+          keyboardType="number-pad"
+          maxLength={10}
         />
         <TextInput
           style={styles.input}

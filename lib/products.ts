@@ -11,6 +11,7 @@ export type PantryProduct = {
   notes: string;
   imageUri: string;
   createdAt: string;
+  batchNumber: string;
 };
 
 const STORAGE_KEY = '@doarguardar_products';
@@ -22,7 +23,12 @@ async function readStorage(): Promise<PantryProduct[]> {
   }
 
   try {
-    return JSON.parse(stored) as PantryProduct[];
+    const items = JSON.parse(stored) as PantryProduct[];
+    // Garantir que batchNumber exista para produtos antigos
+    return items.map(item => ({
+      ...item,
+      batchNumber: item.batchNumber || '',
+    }));
   } catch {
     return [];
   }
@@ -34,7 +40,14 @@ async function writeStorage(items: PantryProduct[]) {
 
 export async function getAllProducts(): Promise<PantryProduct[]> {
   const items = await readStorage();
-  return items.sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+  return items.sort((a, b) => {
+    // Primeiro, ordenar por lote (alfabeticamente)
+    if (a.batchNumber !== b.batchNumber) {
+      return a.batchNumber.localeCompare(b.batchNumber);
+    }
+    // Dentro do mesmo lote, ordenar por data de validade
+    return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
+  });
 }
 
 export async function getProductById(id: number): Promise<PantryProduct | null> {
@@ -100,6 +113,14 @@ export function getDaysUntilExpiry(expiryDate: string) {
   const expiry = new Date(expiryDate);
   const diff = expiry.getTime() - today.getTime();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+export function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 export function isNearExpiry(expiryDate: string, thresholdDays = 7) {
