@@ -108,8 +108,24 @@ export async function lookupProductByBarcode(barcode: string) {
   }
 }
 
+export function getBrazilNow(): Date {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return new Date(`${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}:${values.second}-03:00`);
+}
+
 export function getDaysUntilExpiry(expiryDate: string) {
-  const today = new Date();
+  const today = getBrazilNow();
   const expiry = new Date(expiryDate);
   const diff = expiry.getTime() - today.getTime();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -125,5 +141,9 @@ export function formatDate(dateString: string): string {
 
 export function isNearExpiry(expiryDate: string, thresholdDays = 7) {
   const daysLeft = getDaysUntilExpiry(expiryDate);
-  return daysLeft <= thresholdDays;
+  return daysLeft >= 0 && daysLeft <= thresholdDays;
+}
+
+export function isExpired(expiryDate: string) {
+  return getDaysUntilExpiry(expiryDate) < 0;
 }

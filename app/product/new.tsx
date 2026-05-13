@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -14,7 +15,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { lookupProductByBarcode, PantryProduct, saveProduct } from '@/lib/products';
+import { getBrazilNow, lookupProductByBarcode, PantryProduct, saveProduct } from '@/lib/products';
 
 const CATEGORY_OPTIONS = [
   'Alimentícios',
@@ -33,7 +34,7 @@ const EMPTY_PRODUCT: PantryProduct = {
   quantity: '1',
   notes: '',
   imageUri: '',
-  createdAt: new Date().toISOString(),
+  createdAt: '',
   batchNumber: '',
 };
 
@@ -44,7 +45,6 @@ export default function NewProductScreen() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanned, setScanned] = useState(false);
-  const [scanMode, setScanMode] = useState<'barcode' | 'batch'>('barcode');
   const [scanMessage, setScanMessage] = useState('Aguardando leitura do código de barras...');
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [, requestPermission] = useCameraPermissions();
@@ -81,16 +81,32 @@ export default function NewProductScreen() {
       return;
     }
 
-    // Converter data de dd/mm/yyyy para yyyy-mm-dd
-    const dateParts = product.expiryDate.split('/');
-    if (dateParts.length !== 3) {
+    const expiryRegex = /^([0-3]\d)\/([0-1]\d)\/(\d{4})$/;
+    const match = product.expiryDate.trim().match(expiryRegex);
+    if (!match) {
       Alert.alert('Data de validade inválida. Use o formato dd/mm/aaaa.');
       return;
     }
-    const [day, month, year] = dateParts;
-    const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
-    const productToSave = { ...product, expiryDate: isoDate };
+    const [, day, month, year] = match;
+    const parsedDate = new Date(Number(year), Number(month) - 1, Number(day));
+    if (
+      parsedDate.getFullYear() !== Number(year) ||
+      parsedDate.getMonth() + 1 !== Number(month) ||
+      parsedDate.getDate() !== Number(day)
+    ) {
+      Alert.alert('Data de validade inválida. Use o formato dd/mm/aaaa.');
+      return;
+    }
+
+    const isoDate = `${year}-${month}-${day}`;
+    const quantityNumber = Math.max(1, Number(product.quantity) || 1);
+    const productToSave = {
+      ...product,
+      expiryDate: isoDate,
+      quantity: String(quantityNumber),
+      createdAt: product.createdAt || getBrazilNow().toISOString(),
+    };
 
     await saveProduct(productToSave);
     router.push('/dashboard');
@@ -121,26 +137,17 @@ export default function NewProductScreen() {
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
     setScanned(true);
-    const fieldName = scanMode === 'barcode' ? 'barcode' : 'batchNumber';
-    setProduct((current) => ({ ...current, [fieldName]: data }));
-    setScanMessage(`${scanMode === 'barcode' ? 'Código lido' : 'Lote lido'}: ${data}`);
+    setProduct((current) => ({ ...current, barcode: data }));
+    setScanMessage(`Código lido: ${data}`);
 
-    if (scanMode === 'barcode') {
-      const remoteProduct = await lookupProductByBarcode(data);
-      if (remoteProduct) {
-        setProduct((current) => ({ ...current, ...remoteProduct }));
-        Alert.alert('Sucesso', 'Produto encontrado e preenchido automaticamente.');
-        return;
-      }
-
-      Alert.alert(
-        'Código lido',
-        'Código de barras capturado. Preencha os dados manualmente ou toque em Buscar.',
-      );
+    const remoteProduct = await lookupProductByBarcode(data);
+    if (remoteProduct) {
+      setProduct((current) => ({ ...current, ...remoteProduct }));
+      Alert.alert('Sucesso', 'Produto encontrado e preenchido automaticamente.');
       return;
     }
 
-    Alert.alert('Lote lido', 'Número do lote capturado. Continue o cadastro manualmente.');
+    Alert.alert('Código lido', 'Código de barras capturado. Preencha os dados manualmente ou toque em Buscar.');
   };
 
   const openScanner = async () => {
@@ -155,11 +162,7 @@ export default function NewProductScreen() {
 
     if (granted) {
       setScannerOpen(true);
-      setScanMessage(
-        scanMode === 'barcode'
-          ? 'Aguardando leitura do código de barras...'
-          : 'Aguardando leitura do número do lote...',
-      );
+      setScanMessage('Aguardando leitura do código de barras...');
       setScanned(false);
     } else {
       Alert.alert('Permissão negada', 'Permissão de câmera necessária para escanear códigos de barras.');
@@ -172,180 +175,169 @@ export default function NewProductScreen() {
 
   const resetScanner = () => {
     setScanned(false);
-    setScanMessage(
-      scanMode === 'barcode'
-        ? 'Aguardando leitura do código de barras...'
-        : 'Aguardando leitura do número do lote...',
-    );
+    setScanMessage('Aguardando leitura do código de barras...');
+  };
+
+  const incrementQuantity = () => {
+    setProduct((current) => {
+      const next = Number(current.quantity) + 1;
+      return { ...current, quantity: String(isNaN(next) ? 1 : next) };
+    });
+  };
+
+  const decrementQuantity = () => {
+    setProduct((current) => {
+      const next = Number(current.quantity) - 1;
+      return { ...current, quantity: String(isNaN(next) || next < 1 ? 1 : next) };
+    });
   };
 
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <ThemedText type="title" style={styles.title}>
-          Novo produto
-        </ThemedText>
-        <ThemedText style={styles.description}>
-          Leia o código de barras ou preencha os dados manualmente.
+          Novos produtos
         </ThemedText>
 
-        <View style={styles.scannerContainer}>
-          <View style={styles.scanHeader}>
-            <ThemedText style={styles.scanHint}>{scanMessage}</ThemedText>
-            <Pressable
-              style={styles.scanToggleButton}
-              onPress={scannerOpen ? closeScanner : openScanner}
-            >
-              <ThemedText style={styles.scanToggleText}>
-                {scannerOpen ? 'Fechar câmera' : 'Ler código'}
-              </ThemedText>
-            </Pressable>
-          </View>
-
-          <View style={styles.scanModeRow}>
-            <Pressable
-              style={[
-                styles.scanModeButton,
-                scanMode === 'barcode' ? styles.scanModeButtonActive : null,
-              ]}
-              onPress={() => setScanMode('barcode')}
-            >
-              <ThemedText
-                style={scanMode === 'barcode' ? styles.scanModeTextActive : styles.scanModeText}
+        <View style={styles.formContainer}>
+          <View style={styles.scannerContainer}>
+            <View style={styles.scanHeader}>
+              <ThemedText style={styles.scanHint}>{scanMessage}</ThemedText>
+              <Pressable
+                style={styles.cameraButton}
+                onPress={scannerOpen ? closeScanner : openScanner}
               >
-                Código de barras
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.scanModeButton,
-                scanMode === 'batch' ? styles.scanModeButtonActive : null,
-              ]}
-              onPress={() => setScanMode('batch')}
-            >
-              <ThemedText
-                style={scanMode === 'batch' ? styles.scanModeTextActive : styles.scanModeText}
-              >
-                Número do lote
-              </ThemedText>
-            </Pressable>
-          </View>
+                <MaterialIcons name={scannerOpen ? 'close' : 'camera-alt'} size={20} color="#fff" />
+              </Pressable>
+            </View>
 
-          {scannerOpen ? (
-            hasPermission === null ? (
-              <ThemedText>Solicitando permissão de câmera...</ThemedText>
-            ) : hasPermission === false ? (
-              <ThemedText>Permissão de câmera negada. Use o campo de código manualmente.</ThemedText>
+            {scannerOpen ? (
+              hasPermission === null ? (
+                <ThemedText>Solicitando permissão de câmera...</ThemedText>
+              ) : hasPermission === false ? (
+                <ThemedText>Permissão de câmera negada. Use o campo de código manualmente.</ThemedText>
+              ) : (
+                <CameraView
+                  style={styles.scanner}
+                  facing="back"
+                  onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                />
+              )
             ) : (
-              <CameraView
-                style={styles.scanner}
-                facing="back"
-                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-              />
-            )
-          ) : (
-            <ThemedText style={styles.scanIdleText}>
-              Toque em &quot;Ler código&quot; para abrir a câmera e escanear.
-            </ThemedText>
-          )}
+              <ThemedText style={styles.scanIdleText}>
+                Toque em &quot;Ler código&quot; para abrir a câmera e escanear.
+              </ThemedText>
+            )}
 
-          {scannerOpen && scanned ? (
-            <Pressable style={styles.secondaryButton} onPress={resetScanner}>
-              <ThemedText style={styles.secondaryButtonText}>Escanear novamente</ThemedText>
+            {scannerOpen && scanned ? (
+              <Pressable style={styles.secondaryButton} onPress={resetScanner}>
+                <ThemedText style={styles.secondaryButtonText}>Escanear novamente</ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
+
+          <View style={styles.barcodeSection}>
+            <TextInput
+              style={styles.input}
+              placeholder="Código de barras"
+              value={product.barcode}
+              onChangeText={(value) => handleFieldChange('barcode', value)}
+              placeholderTextColor="#5a7a7f"
+              keyboardType="number-pad"
+            />
+            <Pressable style={styles.lookupButton} onPress={handleLookupBarcode} disabled={isFetching}>
+              <ThemedText type="defaultSemiBold" style={styles.lookupButtonText}>
+                {isFetching ? 'Buscando...' : 'Buscar'}
+              </ThemedText>
             </Pressable>
-          ) : null}
-        </View>
+          </View>
 
-        <View style={styles.barcodeSection}>
+          {product.imageUri ? (
+            <Image source={product.imageUri} style={styles.productImage} />
+          ) : null}
+
           <TextInput
             style={styles.input}
-            placeholder="Código de barras"
-            value={product.barcode}
-            onChangeText={(value) => handleFieldChange('barcode', value)}
-            placeholderTextColor="#888"
-            keyboardType="number-pad"
+            placeholder="Nome do produto"
+            value={product.name}
+            onChangeText={(value) => handleFieldChange('name', value)}
+            placeholderTextColor="#5a7a7f"
           />
-          <Pressable style={styles.lookupButton} onPress={handleLookupBarcode} disabled={isFetching}>
-            <ThemedText type="defaultSemiBold" style={styles.lookupButtonText}>
-              {isFetching ? 'Buscando...' : 'Buscar'}
+          <TextInput
+            style={styles.input}
+            placeholder="Marca"
+            value={product.brand}
+            onChangeText={(value) => handleFieldChange('brand', value)}
+            placeholderTextColor="#5a7a7f"
+          />
+          <Pressable
+            style={[styles.input, styles.dropdownInput]}
+            onPress={() => setCategoryOpen((current) => !current)}
+          >
+            <ThemedText style={product.category ? styles.categoryText : styles.placeholderText}>
+              {product.category || 'Selecione categoria'}
             </ThemedText>
           </Pressable>
-        </View>
-
-        {product.imageUri ? (
-          <Image source={product.imageUri} style={styles.productImage} />
-        ) : null}
-
-        <TextInput
-          style={styles.input}
-          placeholder="Nome do produto"
-          value={product.name}
-          onChangeText={(value) => handleFieldChange('name', value)}
-          placeholderTextColor="#888"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Marca"
-          value={product.brand}
-          onChangeText={(value) => handleFieldChange('brand', value)}
-          placeholderTextColor="#888"
-        />
-        <Pressable
-          style={[styles.input, styles.dropdownInput]}
-          onPress={() => setCategoryOpen((current) => !current)}
-        >
-          <ThemedText style={product.category ? styles.categoryText : styles.placeholderText}>
-            {product.category || 'Selecione categoria'}
-          </ThemedText>
-        </Pressable>
-        {categoryOpen ? (
-          <View style={styles.dropdown}>
-            {CATEGORY_OPTIONS.map((option) => (
-              <Pressable
-                key={option}
-                style={styles.dropdownItem}
-                onPress={() => {
-                  handleFieldChange('category', option);
-                  setCategoryOpen(false);
-                }}
-              >
-                <ThemedText style={styles.dropdownItemText}>{option}</ThemedText>
-              </Pressable>
-            ))}
+          {categoryOpen ? (
+            <View style={styles.dropdown}>
+              {CATEGORY_OPTIONS.map((option) => (
+                <Pressable
+                  key={option}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    handleFieldChange('category', option);
+                    setCategoryOpen(false);
+                  }}
+                >
+                  <ThemedText style={styles.dropdownItemText}>{option}</ThemedText>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+          <TextInput
+            style={styles.input}
+            placeholder="Número do lote"
+            value={product.batchNumber}
+            onChangeText={(value) => handleFieldChange('batchNumber', value)}
+            placeholderTextColor="#5a7a7f"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Data de validade (dd/mm/aaaa)"
+            value={product.expiryDate}
+            onChangeText={(value) => handleExpiryDateChange(value)}
+            placeholderTextColor="#5a7a7f"
+            keyboardType="number-pad"
+            maxLength={10}
+          />
+          <View style={styles.quantityRow}>
+            <Pressable style={styles.quantityButton} onPress={decrementQuantity}>
+              <ThemedText style={styles.quantityButtonText}>-</ThemedText>
+            </Pressable>
+            <TextInput
+              style={[styles.quantityDisplay, styles.quantityInput]}
+              value={product.quantity}
+              onChangeText={(value) => {
+                const numeric = value.replace(/\D/g, '');
+                setProduct((current) => ({ ...current, quantity: numeric || '0' }));
+              }}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor="#5a7a7f"
+            />
+            <Pressable style={styles.quantityButton} onPress={incrementQuantity}>
+              <ThemedText style={styles.quantityButtonText}>+</ThemedText>
+            </Pressable>
           </View>
-        ) : null}
-        <TextInput
-          style={styles.input}
-          placeholder="Número do lote"
-          value={product.batchNumber}
-          onChangeText={(value) => handleFieldChange('batchNumber', value)}
-          placeholderTextColor="#888"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Data de validade (dd/mm/aaaa)"
-          value={product.expiryDate}
-          onChangeText={(value) => handleExpiryDateChange(value)}
-          placeholderTextColor="#888"
-          keyboardType="number-pad"
-          maxLength={10}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Quantidade"
-          value={product.quantity}
-          onChangeText={(value) => handleFieldChange('quantity', value)}
-          placeholderTextColor="#888"
-          keyboardType="number-pad"
-        />
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Observações"
-          value={product.notes}
-          onChangeText={(value) => handleFieldChange('notes', value)}
-          placeholderTextColor="#888"
-          multiline
-        />
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Observações"
+            value={product.notes}
+            onChangeText={(value) => handleFieldChange('notes', value)}
+            placeholderTextColor="#5a7a7f"
+            multiline
+          />
+        </View>
 
         <Pressable style={styles.button} onPress={handleSave}>
           <ThemedText type="defaultSemiBold" style={styles.buttonText}>
@@ -360,24 +352,35 @@ export default function NewProductScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#f3fbfc',
   },
   scrollContent: {
-    padding: 24,
+    padding: 16,
     gap: 16,
   },
   title: {
     textAlign: 'center',
+    color: '#0d3a4e',
+    marginBottom: 8,
   },
-  description: {
-    textAlign: 'center',
+  formContainer: {
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#dbf0f0',
+    shadowColor: '#0f5478',
+    shadowOpacity: 0.04,
+    shadowRadius: 18,
+    elevation: 2,
+    gap: 12,
   },
   scannerContainer: {
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#c9e7ee',
     overflow: 'hidden',
-    backgroundColor: '#000',
+    backgroundColor: '#e8f7fb',
   },
   scanner: {
     width: '100%',
@@ -388,7 +391,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 12,
-    backgroundColor: '#111',
+    backgroundColor: '#2d8571',
   },
   scanHint: {
     flex: 1,
@@ -397,7 +400,7 @@ const styles = StyleSheet.create({
   },
   scanIdleText: {
     padding: 16,
-    color: '#fff',
+    color: '#0f5478',
     textAlign: 'center',
   },
   scanToggleButton: {
@@ -409,6 +412,14 @@ const styles = StyleSheet.create({
   scanToggleText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  cameraButton: {
+    backgroundColor: '#0a7ea4',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   secondaryButton: {
     padding: 12,
@@ -424,39 +435,55 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
   },
-  scanModeRow: {
+  quantityRow: {
     flexDirection: 'row',
-    padding: 12,
-    gap: 8,
-    backgroundColor: '#111',
-  },
-  scanModeButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#444',
-    borderRadius: 12,
-    paddingVertical: 10,
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  scanModeButtonActive: {
-    borderColor: '#0a7ea4',
+  quantityButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: '#0a7ea4',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  scanModeText: {
+  quantityButtonText: {
     color: '#fff',
-  },
-  scanModeTextActive: {
-    color: '#fff',
+    fontSize: 24,
     fontWeight: '700',
+  },
+  quantityDisplay: {
+    flex: 1,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#f0fbfd',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#c9e7ee',
+  },
+  quantityInput: {
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f5478',
+    padding: 0,
+  },
+  quantityValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f5478',
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#bbb',
+    borderColor: '#b1d5c4',
     borderRadius: 12,
     padding: 14,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8fffe',
+    color: '#1a3a3d',
   },
   dropdownInput: {
     justifyContent: 'center',
@@ -478,13 +505,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   placeholderText: {
-    color: '#888',
+    color: '#5a7a7f',
   },
   categoryText: {
-    color: '#000',
+    color: '#1a3a3d',
   },
   lookupButton: {
-    backgroundColor: '#0a7ea4',
+    backgroundColor: '#2d8571',
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderRadius: 12,
@@ -494,15 +521,50 @@ const styles = StyleSheet.create({
   lookupButtonText: {
     color: '#fff',
   },
+  heroCard: {
+    backgroundColor: '#daf4f1',
+    padding: 18,
+    borderRadius: 20,
+    marginBottom: 16,
+    display: 'none',
+  },
+  heroTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f5478',
+    marginBottom: 8,
+  },
+  heroSubtitle: {
+    color: '#3f7d83',
+    lineHeight: 22,
+  },
   productImage: {
     width: '100%',
-    aspectRatio: 4 / 3,
-    borderRadius: 16,
-    marginBottom: 12,
+    height: 80,
+    borderRadius: 12,
+    marginBottom: 14,
   },
   textArea: {
     minHeight: 96,
     textAlignVertical: 'top',
+  },
+  sectionCard: {
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#dbf0f0',
+    shadowColor: '#0f5478',
+    shadowOpacity: 0.04,
+    shadowRadius: 18,
+    elevation: 2,
+    marginTop: 16,
+  },
+  sectionHeading: {
+    color: '#0f5478',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 14,
   },
   button: {
     marginTop: 8,

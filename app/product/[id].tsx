@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -29,6 +29,22 @@ export default function EditProductScreen() {
 
   const handleFieldChange = (field: keyof PantryProduct, value: string) => {
     setProduct((current) => (current ? { ...current, [field]: value } : current));
+  };
+
+  const incrementQuantity = () => {
+    setProduct((current) => {
+      if (!current) return current;
+      const next = Number(current.quantity) + 1;
+      return { ...current, quantity: String(isNaN(next) ? 1 : next) };
+    });
+  };
+
+  const decrementQuantity = () => {
+    setProduct((current) => {
+      if (!current) return current;
+      const next = Number(current.quantity) - 1;
+      return { ...current, quantity: String(isNaN(next) || next < 1 ? 1 : next) };
+    });
   };
 
   const handleExpiryDateChange = (value: string) => {
@@ -61,17 +77,31 @@ export default function EditProductScreen() {
       return;
     }
 
-    // Converter data de dd/mm/yyyy para yyyy-mm-dd se necessário
     let expiryDate = product.expiryDate;
     if (expiryDate.includes('/')) {
-      const dateParts = expiryDate.split('/');
-      if (dateParts.length === 3) {
-        const [day, month, year] = dateParts;
-        expiryDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      const expiryRegex = /^([0-3]\d)\/([0-1]\d)\/(\d{4})$/;
+      const match = expiryDate.trim().match(expiryRegex);
+      if (!match) {
+        Alert.alert('Data de validade inválida. Use o formato dd/mm/aaaa.');
+        return;
       }
+
+      const [, day, month, year] = match;
+      const parsedDate = new Date(Number(year), Number(month) - 1, Number(day));
+      if (
+        parsedDate.getFullYear() !== Number(year) ||
+        parsedDate.getMonth() + 1 !== Number(month) ||
+        parsedDate.getDate() !== Number(day)
+      ) {
+        Alert.alert('Data de validade inválida. Use o formato dd/mm/aaaa.');
+        return;
+      }
+
+      expiryDate = `${year}-${month}-${day}`;
     }
 
-    const productToSave = { ...product, expiryDate };
+    const quantityNumber = Math.max(1, Number(product.quantity) || 1);
+    const productToSave = { ...product, expiryDate, quantity: String(quantityNumber) };
 
     await saveProduct(productToSave);
     router.push('/dashboard');
@@ -118,70 +148,83 @@ export default function EditProductScreen() {
           Editar produto
         </ThemedText>
 
-        {product.imageUri ? (
-          <Image source={product.imageUri} style={styles.productImage} />
-        ) : null}
+        <View style={styles.formContainer}>
+          {product.imageUri ? (
+            <Image source={product.imageUri} style={styles.productImage} />
+          ) : null}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Código de barras"
-          value={product.barcode}
-          onChangeText={(value) => handleFieldChange('barcode', value)}
-          placeholderTextColor="#888"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Nome do produto"
-          value={product.name}
-          onChangeText={(value) => handleFieldChange('name', value)}
-          placeholderTextColor="#888"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Marca"
-          value={product.brand}
-          onChangeText={(value) => handleFieldChange('brand', value)}
-          placeholderTextColor="#888"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Categoria"
-          value={product.category}
-          onChangeText={(value) => handleFieldChange('category', value)}
-          placeholderTextColor="#888"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Número do lote"
-          value={product.batchNumber}
-          onChangeText={(value) => handleFieldChange('batchNumber', value)}
-          placeholderTextColor="#888"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Data de validade (dd/mm/aaaa)"
-          value={product.expiryDate ? formatDate(product.expiryDate) : ''}
-          onChangeText={(value) => handleExpiryDateChange(value)}
-          placeholderTextColor="#888"
-          keyboardType="number-pad"
-          maxLength={10}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Quantidade"
-          value={product.quantity}
-          onChangeText={(value) => handleFieldChange('quantity', value)}
-          placeholderTextColor="#888"
-          keyboardType="number-pad"
-        />
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          placeholder="Observações"
-          value={product.notes}
-          onChangeText={(value) => handleFieldChange('notes', value)}
-          placeholderTextColor="#888"
-          multiline
-        />
+          <TextInput
+            style={styles.input}
+            placeholder="Código de barras"
+            value={product.barcode}
+            onChangeText={(value) => handleFieldChange('barcode', value)}
+            placeholderTextColor="#5a7a7f"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Nome do produto"
+            value={product.name}
+            onChangeText={(value) => handleFieldChange('name', value)}
+            placeholderTextColor="#5a7a7f"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Marca"
+            value={product.brand}
+            onChangeText={(value) => handleFieldChange('brand', value)}
+            placeholderTextColor="#5a7a7f"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Categoria"
+            value={product.category}
+            onChangeText={(value) => handleFieldChange('category', value)}
+            placeholderTextColor="#5a7a7f"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Número do lote"
+            value={product.batchNumber}
+            onChangeText={(value) => handleFieldChange('batchNumber', value)}
+            placeholderTextColor="#5a7a7f"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Data de validade (dd/mm/aaaa)"
+            value={product.expiryDate ? (product.expiryDate.includes('/') ? product.expiryDate : formatDate(product.expiryDate)) : ''}
+            onChangeText={(value) => handleExpiryDateChange(value)}
+            placeholderTextColor="#5a7a7f"
+            keyboardType="number-pad"
+            maxLength={10}
+          />
+          <View style={styles.quantityRow}>
+            <Pressable style={styles.quantityButton} onPress={decrementQuantity}>
+              <ThemedText style={styles.quantityButtonText}>-</ThemedText>
+            </Pressable>
+            <TextInput
+              style={[styles.quantityDisplay, styles.quantityInput]}
+              value={product.quantity}
+              onChangeText={(value) => {
+                const numeric = value.replace(/\D/g, '');
+                setProduct((current) => (current ? { ...current, quantity: numeric || '0' } : current));
+              }}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor="#5a7a7f"
+            />
+            <Pressable style={styles.quantityButton} onPress={incrementQuantity}>
+              <ThemedText style={styles.quantityButtonText}>+</ThemedText>
+            </Pressable>
+          </View>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Observações"
+            value={product.notes}
+            onChangeText={(value) => handleFieldChange('notes', value)}
+            placeholderTextColor="#5a7a7f"
+            multiline
+          />
+        </View>
 
         <Pressable style={styles.button} onPress={handleSave}>
           <ThemedText type="defaultSemiBold" style={styles.buttonText}>
@@ -202,7 +245,7 @@ export default function EditProductScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#f3fbfc',
   },
   loadingContainer: {
     flex: 1,
@@ -211,24 +254,90 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
-    gap: 16,
+    gap: 14,
   },
   title: {
     textAlign: 'center',
+    color: '#0d3a4e',
   },
   productImage: {
     width: '100%',
-    aspectRatio: 4 / 3,
+    height: 80,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  quantityButton: {
+    width: 56,
+    height: 56,
     borderRadius: 16,
-    marginBottom: 12,
+    backgroundColor: '#2d8571',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantityButtonText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  quantityDisplay: {
+    flex: 1,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#edf7f5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#c9e7ee',
+  },
+  quantityInput: {
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f5478',
+    padding: 0,
+  },
+  quantityValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f5478',
+  },
+  description: {
+    color: '#3f7d83',
+    lineHeight: 22,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  sectionCard: {
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#dbf0f0',
+    shadowColor: '#0f5478',
+    shadowOpacity: 0.04,
+    shadowRadius: 18,
+    elevation: 2,
+    marginTop: 16,
+  },
+  sectionHeading: {
+    color: '#0f5478',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 14,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#bbb',
+    borderColor: '#b1d5c4',
     borderRadius: 12,
     padding: 14,
     fontSize: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#f8fffe',
+    color: '#1a3a3d',
   },
   textArea: {
     minHeight: 96,
