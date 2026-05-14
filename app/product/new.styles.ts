@@ -1,0 +1,232 @@
+import { StyleSheet } from 'react-native';
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f3fbfc',
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 16,
+  },
+  title: {
+    textAlign: 'center',
+    color: '#0d3a4e',
+    marginBottom: 8,
+  },
+  formContainer: {
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#dbf0f0',
+    shadowColor: '#0f5478',
+    shadowOpacity: 0.04,
+    shadowRadius: 18,
+    elevation: 2,
+    gap: 12,
+  },
+  scannerContainer: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#c9e7ee',
+    overflow: 'hidden',
+    backgroundColor: '#e8f7fb',
+  },
+  scanner: {
+    width: '100%',
+    aspectRatio: 1,
+  },
+  scanHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: '#2d8571',
+  },
+  scanHint: {
+    flex: 1,
+    color: '#fff',
+    marginRight: 12,
+  },
+  scanIdleText: {
+    padding: 16,
+    color: '#0f5478',
+    textAlign: 'center',
+  },
+  scanToggleButton: {
+    backgroundColor: '#0a7ea4',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  scanToggleText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  cameraButton: {
+    backgroundColor: '#0a7ea4',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  secondaryButton: {
+    padding: 12,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  secondaryButtonText: {
+    color: '#0a7ea4',
+    fontWeight: '600',
+  },
+  barcodeSection: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  quantityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  quantityButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#0a7ea4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quantityButtonText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  quantityDisplay: {
+    flex: 1,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#f0fbfd',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#c9e7ee',
+  },
+  quantityInput: {
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f5478',
+    padding: 0,
+  },
+  quantityValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f5478',
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#b1d5c4',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+    backgroundColor: '#f8fffe',
+    color: '#1a3a3d',
+  },
+  dropdownInput: {
+    justifyContent: 'center',
+  },
+  dropdown: {
+    borderWidth: 1,
+    borderColor: '#bbb',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  dropdownItemText: {
+    fontSize: 16,
+  },
+  placeholderText: {
+    color: '#5a7a7f',
+  },
+  categoryText: {
+    color: '#1a3a3d',
+  },
+  lookupButton: {
+    backgroundColor: '#2d8571',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lookupButtonText: {
+    color: '#fff',
+  },
+  heroCard: {
+    backgroundColor: '#daf4f1',
+    padding: 18,
+    borderRadius: 20,
+    marginBottom: 16,
+    display: 'none',
+  },
+  heroTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f5478',
+    marginBottom: 8,
+  },
+  heroSubtitle: {
+    color: '#3f7d83',
+    lineHeight: 22,
+  },
+  productImage: {
+    width: '100%',
+    height: 80,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  textArea: {
+    minHeight: 96,
+    textAlignVertical: 'top',
+  },
+  sectionCard: {
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#dbf0f0',
+    shadowColor: '#0f5478',
+    shadowOpacity: 0.04,
+    shadowRadius: 18,
+    elevation: 2,
+    marginTop: 16,
+  },
+  sectionHeading: {
+    color: '#0f5478',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 14,
+  },
+  button: {
+    marginTop: 8,
+    backgroundColor: '#0a7ea4',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+  },
+});
+
+export default styles;
