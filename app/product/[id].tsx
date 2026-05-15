@@ -101,7 +101,13 @@ export default function EditProductScreen() {
     }
 
     const quantityNumber = Math.max(1, Number(product.quantity) || 1);
-    const productToSave = { ...product, expiryDate, quantity: String(quantityNumber) };
+    const minimumStockNumber = Math.max(0, Number(product.minimumStock) || 0);
+    const productToSave = {
+      ...product,
+      expiryDate,
+      quantity: String(quantityNumber),
+      minimumStock: String(minimumStockNumber),
+    };
 
     await saveProduct(productToSave);
     router.push('/dashboard');
@@ -216,6 +222,17 @@ export default function EditProductScreen() {
               <ThemedText style={styles.quantityButtonText}>+</ThemedText>
             </Pressable>
           </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Estoque mínimo"
+            value={product.minimumStock}
+            onChangeText={(value) => {
+              const numeric = value.replace(/\D/g, '');
+              setProduct((current) => (current ? { ...current, minimumStock: numeric || '0' } : current));
+            }}
+            placeholderTextColor="#5a7a7f"
+            keyboardType="number-pad"
+          />
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Observações"

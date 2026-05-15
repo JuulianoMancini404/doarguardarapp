@@ -149,6 +149,15 @@ export default function DashboardScreen() {
           Adicionar novos produtos
         </ThemedText>
       </Pressable>
+      <Pressable
+        style={[styles.floatingButton, styles.secondaryFloatingButton]}
+        onPress={() => router.push('/movements')}
+      >
+        <MaterialIcons name="history" size={20} color="#fff" />
+        <ThemedText type="defaultSemiBold" style={{ color: '#fff', fontSize: 14 }}>
+          Histórico movimentações
+        </ThemedText>
+      </Pressable>
     </ThemedView>
   );
 }
@@ -296,6 +305,10 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
+  },
+  secondaryFloatingButton: {
+    bottom: 90,
+    backgroundColor: '#1f6f5a',
   },
   emptyText: {
     color: '#555',

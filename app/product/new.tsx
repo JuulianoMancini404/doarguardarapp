@@ -4,12 +4,12 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
-  Platform,
-  Pressable,
-  ScrollView,
-  TextInput,
-  View
+    Alert,
+    Platform,
+    Pressable,
+    ScrollView,
+    TextInput,
+    View
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -34,6 +34,7 @@ const EMPTY_PRODUCT: PantryProduct = {
   category: '',
   expiryDate: '',
   quantity: '1',
+  minimumStock: '0',
   notes: '',
   imageUri: '',
   createdAt: '',
@@ -103,10 +104,12 @@ export default function NewProductScreen() {
 
     const isoDate = `${year}-${month}-${day}`;
     const quantityNumber = Math.max(1, Number(product.quantity) || 1);
+    const minimumStockNumber = Math.max(0, Number(product.minimumStock) || 0);
     const productToSave = {
       ...product,
       expiryDate: isoDate,
       quantity: String(quantityNumber),
+      minimumStock: String(minimumStockNumber),
       createdAt: product.createdAt || getBrazilNow().toISOString(),
     };
 
@@ -331,6 +334,17 @@ export default function NewProductScreen() {
               <ThemedText style={styles.quantityButtonText}>+</ThemedText>
             </Pressable>
           </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Estoque mínimo"
+            value={product.minimumStock}
+            onChangeText={(value) => {
+              const numeric = value.replace(/\D/g, '');
+              handleFieldChange('minimumStock', numeric || '0');
+            }}
+            placeholderTextColor="#5a7a7f"
+            keyboardType="number-pad"
+          />
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Observações"

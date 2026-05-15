@@ -8,13 +8,27 @@ export type PantryProduct = {
   category: string;
   expiryDate: string;
   quantity: string;
+  minimumStock: string;
   notes: string;
   imageUri: string;
   createdAt: string;
   batchNumber: string;
 };
 
+export type PantryMovement = {
+  id?: number;
+  productId: number;
+  productName: string;
+  type: 'entrada' | 'retirada';
+  quantity: number;
+  previousQuantity: number;
+  newQuantity: number;
+  timestamp: string;
+  note?: string;
+};
+
 const STORAGE_KEY = '@doarguardar_products';
+const MOVEMENTS_STORAGE_KEY = '@doarguardar_movements';
 
 async function readStorage(): Promise<PantryProduct[]> {
   const stored = await AsyncStorage.getItem(STORAGE_KEY);
@@ -24,10 +38,11 @@ async function readStorage(): Promise<PantryProduct[]> {
 
   try {
     const items = JSON.parse(stored) as PantryProduct[];
-    // Garantir que batchNumber exista para produtos antigos
+    // Garantir que batchNumber e mínimo de estoque existam para produtos antigos
     return items.map(item => ({
       ...item,
       batchNumber: item.batchNumber || '',
+      minimumStock: item.minimumStock || '0',
     }));
   } catch {
     return [];
@@ -36,6 +51,37 @@ async function readStorage(): Promise<PantryProduct[]> {
 
 async function writeStorage(items: PantryProduct[]) {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+
+async function readMovementStorage(): Promise<PantryMovement[]> {
+  const stored = await AsyncStorage.getItem(MOVEMENTS_STORAGE_KEY);
+  if (!stored) {
+    return [];
+  }
+
+  try {
+    return JSON.parse(stored) as PantryMovement[];
+  } catch {
+    return [];
+  }
+}
+
+async function writeMovementStorage(items: PantryMovement[]) {
+  await AsyncStorage.setItem(MOVEMENTS_STORAGE_KEY, JSON.stringify(items));
+}
+
+export async function getAllMovements(): Promise<PantryMovement[]> {
+  const movements = await readMovementStorage();
+  return movements.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
+export async function saveMovement(movement: PantryMovement): Promise<number> {
+  const items = await readMovementStorage();
+  const nextId = items.length > 0 ? Math.max(...items.map((item) => item.id ?? 0)) + 1 : 1;
+  const newMovement = { ...movement, id: nextId };
+
+  await writeMovementStorage([...items, newMovement]);
+  return nextId;
 }
 
 export async function getAllProducts(): Promise<PantryProduct[]> {
@@ -59,6 +105,24 @@ export async function saveProduct(product: PantryProduct): Promise<number> {
   const items = await readStorage();
 
   if (product.id) {
+    const existingProduct = items.find((item) => item.id === product.id);
+    if (existingProduct) {
+      const oldQuantity = Number(existingProduct.quantity) || 0;
+      const newQuantity = Number(product.quantity) || 0;
+      if (newQuantity !== oldQuantity) {
+        const movementType: PantryMovement['type'] = newQuantity > oldQuantity ? 'entrada' : 'retirada';
+        await saveMovement({
+          productId: product.id,
+          productName: product.name,
+          type: movementType,
+          quantity: Math.abs(newQuantity - oldQuantity),
+          previousQuantity: oldQuantity,
+          newQuantity,
+          timestamp: getBrazilNow().toISOString(),
+        });
+      }
+    }
+
     const updated = items.map((item) => (item.id === product.id ? product : item));
     await writeStorage(updated);
     return product.id;
@@ -66,6 +130,19 @@ export async function saveProduct(product: PantryProduct): Promise<number> {
 
   const nextId = items.length > 0 ? Math.max(...items.map((item) => item.id ?? 0)) + 1 : 1;
   const newProduct = { ...product, id: nextId };
+
+  const quantity = Number(newProduct.quantity) || 0;
+  if (quantity > 0) {
+    await saveMovement({
+      productId: newProduct.id,
+      productName: newProduct.name,
+      type: 'entrada',
+      quantity,
+      previousQuantity: 0,
+      newQuantity: quantity,
+      timestamp: getBrazilNow().toISOString(),
+    });
+  }
 
   await writeStorage([...items, newProduct]);
   return nextId;
