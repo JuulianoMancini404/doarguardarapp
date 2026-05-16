@@ -4,12 +4,12 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Platform,
-    Pressable,
-    ScrollView,
-    TextInput,
-    View
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -78,6 +78,13 @@ export default function NewProductScreen() {
     Alert.alert('Não encontrado', 'Produto não encontrado. Complete os dados manualmente.');
   };
 
+  const calculateDailyConsumptionRate = (quantity: number, expiryDate: string): number => {
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    const daysUntilExpiry = Math.max(1, Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    return quantity / daysUntilExpiry;
+  };
+
   const handleSave = async () => {
     if (!product.name.trim() || !product.expiryDate.trim()) {
       Alert.alert('Preencha ao menos o nome e a data de validade do produto.');
@@ -105,11 +112,14 @@ export default function NewProductScreen() {
     const isoDate = `${year}-${month}-${day}`;
     const quantityNumber = Math.max(1, Number(product.quantity) || 1);
     const minimumStockNumber = Math.max(0, Number(product.minimumStock) || 0);
+    const dailyConsumptionRate = calculateDailyConsumptionRate(quantityNumber, isoDate);
+
     const productToSave = {
       ...product,
       expiryDate: isoDate,
       quantity: String(quantityNumber),
       minimumStock: String(minimumStockNumber),
+      dailyConsumptionRate,
       createdAt: product.createdAt || getBrazilNow().toISOString(),
     };
 

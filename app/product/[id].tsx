@@ -67,6 +67,13 @@ export default function EditProductScreen() {
     setProduct((current) => (current ? { ...current, expiryDate: formatted } : current));
   };
 
+  const calculateDailyConsumptionRate = (quantity: number, expiryDate: string): number => {
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    const daysUntilExpiry = Math.max(1, Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    return quantity / daysUntilExpiry;
+  };
+
   const handleSave = async () => {
     if (!product) {
       return;
@@ -102,11 +109,14 @@ export default function EditProductScreen() {
 
     const quantityNumber = Math.max(1, Number(product.quantity) || 1);
     const minimumStockNumber = Math.max(0, Number(product.minimumStock) || 0);
+    const dailyConsumptionRate = calculateDailyConsumptionRate(quantityNumber, expiryDate);
+
     const productToSave = {
       ...product,
       expiryDate,
       quantity: String(quantityNumber),
       minimumStock: String(minimumStockNumber),
+      dailyConsumptionRate,
     };
 
     await saveProduct(productToSave);
@@ -377,5 +387,17 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     color: '#fff',
+  },
+  formContainer: {
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dbf0f0',
+    shadowColor: '#0f5478',
+    shadowOpacity: 0.04,
+    shadowRadius: 18,
+    elevation: 2,
   },
 });
